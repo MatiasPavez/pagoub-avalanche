@@ -1,0 +1,23 @@
+# Dependencias
+node_modules/
+
+# Claves y variables de entorno (NUNCA subir)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Salidas de compilación
+contracts/artifacts/
+contracts/cache/
+contracts/types/
+contracts/coverage/
+web/.next/
+web/out/
+web/build/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
