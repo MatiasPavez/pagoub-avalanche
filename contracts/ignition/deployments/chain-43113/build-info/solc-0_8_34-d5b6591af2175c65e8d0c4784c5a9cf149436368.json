@@ -1,0 +1,49 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_34-d5b6591af2175c65e8d0c4784c5a9cf149436368",
+  "solcVersion": "0.8.34",
+  "solcLongVersion": "0.8.34+commit.80d5c536",
+  "compilerType": "solc",
+  "toolVersions": {
+    "hardhat": "3.22.0"
+  },
+  "userSourceNameMap": {
+    "contracts/PagoUB.sol": "project/contracts/PagoUB.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/PagoUB.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.28;\n\n/// @title PagoUB: pago automático de Unidades Becarias (UB) a ayudantes\n/// @notice La administración deposita presupuesto, fija el valor de la UB y\n///         registra ayudantías. Cuando el profesor asignado confirma un mes,\n///         el contrato paga de inmediato UBs mensuales × valor UB al ayudante.\ncontract PagoUB {\n    struct Ayudantia {\n        address ayudante;\n        address profesor;\n        string curso;\n        uint256 ubsMensuales;\n        uint256 mesesTotales;\n        uint256 mesesPagados;\n    }\n\n    /// @notice Cuenta de la administración (quien despliega el contrato).\n    address public immutable administracion;\n\n    /// @notice Valor de 1 UB en wei (1 AVAX = 10^18 wei).\n    uint256 public valorUB;\n\n    /// @notice Cantidad de ayudantías registradas. Los ids van de 0 a total-1.\n    uint256 public totalAyudantias;\n\n    /// @notice UBs aún por pagar, sumando todas las ayudantías.\n    uint256 public ubsPendientes;\n\n    mapping(uint256 => Ayudantia) public ayudantias;\n\n    event PresupuestoDepositado(address indexed administracion, uint256 monto);\n    event ValorUBActualizado(uint256 valorAnterior, uint256 valorNuevo);\n    event AyudantiaRegistrada(\n        uint256 indexed id,\n        address indexed ayudante,\n        address indexed profesor,\n        string curso,\n        uint256 ubsMensuales,\n        uint256 mesesTotales\n    );\n    event MesConfirmado(\n        uint256 indexed id,\n        address indexed ayudante,\n        uint256 numeroMes,\n        uint256 ubs,\n        uint256 monto\n    );\n    event SobranteRetirado(address indexed administracion, uint256 monto);\n\n    modifier soloAdministracion() {\n        require(msg.sender == administracion, \"Solo la administracion\");\n        _;\n    }\n\n    constructor(uint256 valorUBInicial) {\n        require(valorUBInicial > 0, \"Valor UB debe ser mayor a 0\");\n        administracion = msg.sender;\n        valorUB = valorUBInicial;\n        emit ValorUBActualizado(0, valorUBInicial);\n    }\n\n    /// @notice 1) La administración carga presupuesto (en AVAX) al contrato.\n    function depositarPresupuesto() external payable soloAdministracion {\n        require(msg.value > 0, \"Monto debe ser mayor a 0\");\n        emit PresupuestoDepositado(msg.sender, msg.value);\n    }\n\n    /// @notice 2) La administración fija el valor de la UB (en wei).\n    ///         Se aplica a los meses que se confirmen desde ahora.\n    function fijarValorUB(uint256 nuevoValor) external soloAdministracion {\n        require(nuevoValor > 0, \"Valor UB debe ser mayor a 0\");\n        emit ValorUBActualizado(valorUB, nuevoValor);\n        valorUB = nuevoValor;\n    }\n\n    /// @notice 3) La administración registra una ayudantía. Devuelve su id.\n    function registrarAyudantia(\n        address ayudante,\n        address profesor,\n        string calldata curso,\n        uint256 ubsMensuales,\n        uint256 mesesTotales\n    ) external soloAdministracion returns (uint256 id) {\n        require(ayudante != address(0), \"Ayudante invalido\");\n        require(profesor != address(0), \"Profesor invalido\");\n        require(ayudante != profesor, \"Ayudante y profesor deben ser distintos\");\n        require(bytes(curso).length > 0, \"Curso vacio\");\n        require(ubsMensuales > 0, \"UBs mensuales debe ser mayor a 0\");\n        require(mesesTotales > 0 && mesesTotales <= 12, \"Meses entre 1 y 12\");\n\n        id = totalAyudantias;\n        totalAyudantias = id + 1;\n        ayudantias[id] = Ayudantia(ayudante, profesor, curso, ubsMensuales, mesesTotales, 0);\n        ubsPendientes += ubsMensuales * mesesTotales;\n\n        emit AyudantiaRegistrada(id, ayudante, profesor, curso, ubsMensuales, mesesTotales);\n    }\n\n    /// @notice 4) El profesor asignado confirma el siguiente mes trabajado y\n    ///         el contrato paga UBs mensuales × valor UB al ayudante.\n    function confirmarMes(uint256 id) external {\n        require(id < totalAyudantias, \"Ayudantia no existe\");\n        Ayudantia storage a = ayudantias[id];\n        require(msg.sender == a.profesor, \"Solo el profesor de la ayudantia\");\n        require(a.mesesPagados < a.mesesTotales, \"Ayudantia ya pagada completa\");\n\n        uint256 monto = a.ubsMensuales * valorUB;\n        require(address(this).balance >= monto, \"Presupuesto insuficiente\");\n\n        // Primero se actualizan los registros, después se envía el dinero\n        // (protege contra ataques de reentrada).\n        a.mesesPagados += 1;\n        ubsPendientes -= a.ubsMensuales;\n\n        (bool ok, ) = payable(a.ayudante).call{value: monto}(\"\");\n        require(ok, \"Fallo el pago al ayudante\");\n\n        emit MesConfirmado(id, a.ayudante, a.mesesPagados, a.ubsMensuales, monto);\n    }\n\n    /// @notice 5) La administración retira solo lo que NO está comprometido\n    ///         con meses pendientes de pago (al valor UB vigente).\n    function retirarSobrante(uint256 monto) external soloAdministracion {\n        require(monto > 0, \"Monto debe ser mayor a 0\");\n        require(monto <= sobranteDisponible(), \"Monto supera el sobrante\");\n\n        (bool ok, ) = payable(administracion).call{value: monto}(\"\");\n        require(ok, \"Fallo el retiro\");\n\n        emit SobranteRetirado(administracion, monto);\n    }\n\n    // ---------- Lecturas (gratis, no cuestan gas) ----------\n\n    /// @notice AVAX necesarios para pagar todos los meses pendientes.\n    function presupuestoComprometido() public view returns (uint256) {\n        return ubsPendientes * valorUB;\n    }\n\n    /// @notice AVAX que la administración puede retirar sin afectar pagos.\n    function sobranteDisponible() public view returns (uint256) {\n        uint256 saldoActual = address(this).balance;\n        uint256 comprometido = presupuestoComprometido();\n        return saldoActual > comprometido ? saldoActual - comprometido : 0;\n    }\n\n    /// @notice Saldo total del contrato.\n    function saldo() external view returns (uint256) {\n        return address(this).balance;\n    }\n}\n"
+      }
+    }
+  }
+}
