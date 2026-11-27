@@ -21,3 +21,6 @@ web/build/
 .DS_Store
 Thumbs.db
 *.log
+
+# Guía del curso (contiene enlaces privados del grupo)
+GUIA.md
