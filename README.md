@@ -6,7 +6,7 @@ Prototipo para el hackathon **Chile Team1 Avalanche** (curso IN3863, Aplicacione
 
 | | |
 | --- | --- |
-| **Demo** | _(URL de Vercel: pendiente)_ |
+| **Demo** | **https://pagoub-avalanche.vercel.app** |
 | **Contrato (Fuji C-Chain, 43113)** | [`0xF9F0Ddae0b7710A9Ff8C3d8622b1A543C6FC4907`](https://testnet.snowtrace.io/address/0xF9F0Ddae0b7710A9Ff8C3d8622b1A543C6FC4907#code) (código verificado) |
 | Depósito de presupuesto | [`0x79e1…d9cf`](https://testnet.snowtrace.io/tx/0x79e1cd15ccfa2ec6bce0a90dd3c3ee97d36af86bdcdbbde7d7ee0f150049d9cf) |
 | Registro de ayudantía | [`0x60e0…0ee7`](https://testnet.snowtrace.io/tx/0x60e06f4c814610a12e7fdb06bbb2076e8c37dfcab8870e462830a96816570ee7) |
